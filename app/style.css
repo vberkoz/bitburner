@@ -127,6 +127,20 @@ textarea {
     pointer-events: none;
 }
 
+.message-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: #666;
+    font-family: 'IBM Plex Mono', monospace;
+}
+
+.stats-separator {
+    color: #ddd;
+}
+
 .expiration-selector {
     display: flex;
     align-items: center;

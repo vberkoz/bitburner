@@ -78,6 +78,11 @@
                 <textarea id="messageInput" placeholder="Enter your secret message..." aria-label="Secret message input"></textarea>
                 <i data-lucide="file-text" class="textarea-icon"></i>
             </div>
+            <div class="message-stats">
+                <span id="charCount">0 characters</span>
+                <span class="stats-separator">•</span>
+                <span id="wordCount">0 words</span>
+            </div>
             <div class="expiration-selector">
                 <label for="expirationTime"><i data-lucide="clock" class="label-icon"></i> Expires in:</label>
                 <div class="custom-select">
@@ -117,11 +122,7 @@
         </div>
 
         <div id="viewSection" class="hidden">
-            <div id="loadingSpinner" class="loading-spinner">
-                <i data-lucide="loader-2" class="spinner-icon"></i>
-                <p>Decrypting your secret message...</p>
-            </div>
-            <div id="messageContent" class="hidden">
+            <div id="messageContent">
                 <h2><i data-lucide="eye" class="section-icon"></i> Secret Message</h2>
                 <div id="messageDisplay"></div>
             </div>
