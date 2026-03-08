@@ -65,15 +65,16 @@
 </head>
 <body>
     <div class="container">
-        <h1>One-Time Secret Message</h1>
+        <h1>Secure One-Time Secret Message Sharing</h1>
+        <p class="subtitle">Send encrypted messages that self-destruct after viewing</p>
         
         <div id="createSection">
-            <h2>Create Secret</h2>
-            <textarea id="messageInput" placeholder="Enter your secret message..."></textarea>
-            <button id="createBtn">Generate One-Time URL</button>
+            <h2>Create Encrypted Secret</h2>
+            <textarea id="messageInput" placeholder="Enter your secret message..." aria-label="Secret message input"></textarea>
+            <button id="createBtn">Generate Secure One-Time URL</button>
             <div id="result" class="hidden">
                 <p>Share this URL (it works only once):</p>
-                <input type="text" id="secretUrl" readonly>
+                <input type="text" id="secretUrl" readonly aria-label="One-time secret URL">
                 <button id="copyBtn">Copy</button>
             </div>
         </div>
@@ -84,6 +85,18 @@
         </div>
 
         <div id="error" class="hidden"></div>
+        
+        <footer class="features">
+            <h3>Why Use Bitburner for Secure Message Sharing?</h3>
+            <ul>
+                <li><strong>End-to-End Encryption:</strong> Your encrypted messages never leave your browser unencrypted. We use AES-256-GCM encryption.</li>
+                <li><strong>One-Time Secret Links:</strong> Each secure message can only be viewed once, then it's permanently deleted.</li>
+                <li><strong>No Registration:</strong> Share encrypted messages instantly without creating an account.</li>
+                <li><strong>Auto-Expiration:</strong> Unviewed one-time secrets automatically expire after 24 hours.</li>
+                <li><strong>Privacy First:</strong> We never see your messages. Client-side encryption means only you and your recipient can read them.</li>
+            </ul>
+            <p class="use-cases">Perfect for sharing passwords, API keys, sensitive information, confidential notes, or any private message that needs secure transmission.</p>
+        </footer>
     </div>
 
     <script src="app.js"></script>
