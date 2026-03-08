@@ -28,6 +28,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
     
     <!-- Structured Data (JSON-LD) -->
     <script type="application/ld+json">
@@ -65,40 +66,88 @@
 </head>
 <body>
     <div class="container">
+        <div class="header-icon">
+            <i data-lucide="shield-check" class="main-icon"></i>
+        </div>
         <h1>Secure One-Time Secret Message Sharing</h1>
         <p class="subtitle">Send encrypted messages that self-destruct after viewing</p>
         
         <div id="createSection">
-            <h2>Create Encrypted Secret</h2>
-            <textarea id="messageInput" placeholder="Enter your secret message..." aria-label="Secret message input"></textarea>
-            <button id="createBtn">Generate Secure One-Time URL</button>
+            <h2><i data-lucide="lock" class="section-icon"></i> Create Encrypted Secret</h2>
+            <div class="textarea-wrapper">
+                <textarea id="messageInput" placeholder="Enter your secret message..." aria-label="Secret message input"></textarea>
+                <i data-lucide="file-text" class="textarea-icon"></i>
+            </div>
+            <div class="expiration-selector">
+                <label for="expirationTime"><i data-lucide="clock" class="label-icon"></i> Expires in:</label>
+                <div class="custom-select">
+                    <div class="select-trigger" id="selectTrigger">
+                        <span id="selectedValue">24 hours</span>
+                        <i data-lucide="chevron-down" class="select-arrow"></i>
+                    </div>
+                    <div class="select-options" id="selectOptions">
+                        <div class="select-option" data-value="1">
+                            <i data-lucide="clock-3"></i>
+                            <span>1 hour</span>
+                        </div>
+                        <div class="select-option" data-value="6">
+                            <i data-lucide="clock-9"></i>
+                            <span>6 hours</span>
+                        </div>
+                        <div class="select-option active" data-value="24">
+                            <i data-lucide="clock"></i>
+                            <span>24 hours</span>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="expirationTime" value="24">
+            </div>
+            <button id="createBtn">
+                <i data-lucide="link" class="btn-icon"></i>
+                Generate Secure One-Time URL
+            </button>
             <div id="result" class="hidden">
-                <p>Share this URL (it works only once):</p>
+                <p><i data-lucide="share-2" class="inline-icon"></i> Share this URL (it works only once):</p>
                 <input type="text" id="secretUrl" readonly aria-label="One-time secret URL">
-                <button id="copyBtn">Copy</button>
+                <button id="copyBtn">
+                    <i data-lucide="copy" class="btn-icon"></i>
+                    Copy
+                </button>
             </div>
         </div>
 
         <div id="viewSection" class="hidden">
-            <h2>Secret Message</h2>
-            <div id="messageDisplay"></div>
+            <div id="loadingSpinner" class="loading-spinner">
+                <i data-lucide="loader-2" class="spinner-icon"></i>
+                <p>Decrypting your secret message...</p>
+            </div>
+            <div id="messageContent" class="hidden">
+                <h2><i data-lucide="eye" class="section-icon"></i> Secret Message</h2>
+                <div id="messageDisplay"></div>
+            </div>
         </div>
 
-        <div id="error" class="hidden"></div>
+        <div id="error" class="hidden">
+            <i data-lucide="alert-circle" class="error-icon"></i>
+            <span id="errorMessage"></span>
+        </div>
         
         <footer class="features">
             <h3>Why Use Bitburner for Secure Message Sharing?</h3>
             <ul>
-                <li><strong>End-to-End Encryption:</strong> Your encrypted messages never leave your browser unencrypted. We use AES-256-GCM encryption.</li>
-                <li><strong>One-Time Secret Links:</strong> Each secure message can only be viewed once, then it's permanently deleted.</li>
-                <li><strong>No Registration:</strong> Share encrypted messages instantly without creating an account.</li>
-                <li><strong>Auto-Expiration:</strong> Unviewed one-time secrets automatically expire after 24 hours.</li>
-                <li><strong>Privacy First:</strong> We never see your messages. Client-side encryption means only you and your recipient can read them.</li>
+                <li><i data-lucide="shield" class="feature-icon"></i><strong>End-to-End Encryption:</strong> Your encrypted messages never leave your browser unencrypted. We use AES-256-GCM encryption.</li>
+                <li><i data-lucide="link-2" class="feature-icon"></i><strong>One-Time Secret Links:</strong> Each secure message can only be viewed once, then it's permanently deleted.</li>
+                <li><i data-lucide="user-x" class="feature-icon"></i><strong>No Registration:</strong> Share encrypted messages instantly without creating an account.</li>
+                <li><i data-lucide="timer" class="feature-icon"></i><strong>Auto-Expiration:</strong> Choose when unviewed secrets expire: 1 hour, 6 hours, or 24 hours.</li>
+                <li><i data-lucide="eye-off" class="feature-icon"></i><strong>Privacy First:</strong> We never see your messages. Client-side encryption means only you and your recipient can read them.</li>
             </ul>
-            <p class="use-cases">Perfect for sharing passwords, API keys, sensitive information, confidential notes, or any private message that needs secure transmission.</p>
+            <p class="use-cases"><i data-lucide="key" class="inline-icon"></i> Perfect for sharing passwords, API keys, sensitive information, confidential notes, or any private message that needs secure transmission.</p>
         </footer>
     </div>
 
     <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
 </html>

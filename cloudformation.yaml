@@ -154,11 +154,11 @@ Resources:
                   
                   // Create secret
                   if (method === 'POST' && path === '/secrets') {
-                      const { encrypted, iv } = JSON.parse(event.body);
+                      const { encrypted, iv, expirationHours = 24 } = JSON.parse(event.body);
                       const id = crypto.randomBytes(16).toString('hex');
                       const timestamp = Date.now();
                       const date = new Date(timestamp).toISOString().split('T')[0];
-                      const ttl = Math.floor(timestamp / 1000) + (24 * 60 * 60);
+                      const ttl = Math.floor(timestamp / 1000) + (expirationHours * 60 * 60);
                       
                       await client.send(new PutItemCommand({
                           TableName: TABLE_NAME,
@@ -169,13 +169,14 @@ Resources:
                               encrypted,
                               iv,
                               createdAt: timestamp,
+                              expirationHours,
                               ttl
                           })
                       }));
                       
                       // Log metrics
                       await Promise.all([
-                          logMetric('CREATE', { secretId: id }),
+                          logMetric('CREATE', { secretId: id, expirationHours }),
                           updateDailyStats(date, 'secretsCreated')
                       ]);
                       
