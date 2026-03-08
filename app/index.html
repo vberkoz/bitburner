@@ -28,6 +28,39 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Bitburner",
+      "url": "https://bitburner.vberkoz.com",
+      "description": "Share encrypted messages securely with one-time URLs. Messages are encrypted client-side with AES-256-GCM and automatically deleted after viewing.",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Client-side AES-256-GCM encryption",
+        "One-time URL access",
+        "Automatic message deletion after viewing",
+        "24-hour TTL for unviewed messages",
+        "No registration required"
+      ],
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "softwareVersion": "1.0",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "ratingCount": "1"
+      }
+    }
+    </script>
+    
     <script data-project="bitburner" data-source="webapp" src="https://analytics.vberkoz.com/track.js"></script>
 </head>
 <body>
