@@ -12,11 +12,23 @@ async function loadDashboard() {
         
         const data = await response.json();
         
-        // Update stats
-        document.getElementById('totalSecrets').textContent = data.totalSecrets.toLocaleString();
-        document.getElementById('secretsToday').textContent = data.secretsToday.toLocaleString();
-        document.getElementById('secretsViewed').textContent = data.secretsViewed.toLocaleString();
-        document.getElementById('activeSecrets').textContent = (data.totalSecrets - data.secretsViewed).toLocaleString();
+        // Update stats and remove loading spinners
+        const totalSecretsEl = document.getElementById('totalSecrets');
+        const secretsTodayEl = document.getElementById('secretsToday');
+        const secretsViewedEl = document.getElementById('secretsViewed');
+        const activeSecretsEl = document.getElementById('activeSecrets');
+        
+        totalSecretsEl.textContent = data.totalSecrets.toLocaleString();
+        totalSecretsEl.classList.remove('loading');
+        
+        secretsTodayEl.textContent = data.secretsToday.toLocaleString();
+        secretsTodayEl.classList.remove('loading');
+        
+        secretsViewedEl.textContent = data.secretsViewed.toLocaleString();
+        secretsViewedEl.classList.remove('loading');
+        
+        activeSecretsEl.textContent = (data.totalSecrets - data.secretsViewed).toLocaleString();
+        activeSecretsEl.classList.remove('loading');
         
         // Draw chart with real data
         drawChart(data.dailyStats);
@@ -33,6 +45,7 @@ async function loadDashboard() {
 function showError(message) {
     const statsCards = document.querySelectorAll('.stat-value');
     statsCards.forEach(card => {
+        card.classList.remove('loading');
         card.textContent = 'Error';
         card.style.color = '#c53030';
     });
@@ -40,6 +53,12 @@ function showError(message) {
 
 // Simple chart drawing
 function drawChart(dailyStats) {
+    // Hide loading spinner
+    const chartLoading = document.getElementById('chartLoading');
+    if (chartLoading) {
+        chartLoading.classList.add('hidden');
+    }
+    
     const canvas = document.getElementById('timeChart');
     const ctx = canvas.getContext('2d');
     

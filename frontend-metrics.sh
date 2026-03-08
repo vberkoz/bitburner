@@ -42,18 +42,19 @@ echo "Metrics Bucket: $METRICS_BUCKET"
 
 # Update dashboard.js with API endpoint
 echo "Updating dashboard.js..."
-sed "s|API_GATEWAY_URL|${API_ENDPOINT}|g" metrics/js/dashboard.js > metrics/js/dashboard.js.tmp
-mv metrics/js/dashboard.js.tmp metrics/js/dashboard.js
+cp metrics/js/dashboard.js metrics/js/dashboard.js.backup
+sed "s|API_GATEWAY_URL|${API_ENDPOINT}|g" metrics/js/dashboard.js.backup > metrics/js/dashboard.js
 
 # Upload metrics files
 echo "Uploading metrics files..."
 aws s3 sync metrics/ s3://$METRICS_BUCKET/ \
     --exclude ".DS_Store" \
+    --exclude "*.backup" \
     --region $REGION \
     --profile $PROFILE
 
 # Restore original
-git checkout metrics/js/dashboard.js 2>/dev/null || sed "s|${API_ENDPOINT}|API_GATEWAY_URL|g" metrics/js/dashboard.js > metrics/js/dashboard.js.tmp && mv metrics/js/dashboard.js.tmp metrics/js/dashboard.js
+mv metrics/js/dashboard.js.backup metrics/js/dashboard.js
 
 # Invalidate CloudFront cache
 echo "Invalidating CloudFront cache..."

@@ -616,6 +616,9 @@ Resources:
             QueryString: false
             Cookies:
               Forward: none
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt MetricsUrlRewriteFunction.FunctionMetadata.FunctionARN
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
@@ -624,6 +627,31 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /login.html
         HttpVersion: http2and3
+
+  MetricsUrlRewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: bitburner-metrics-url-rewrite
+      AutoPublish: true
+      FunctionCode: |
+        function handler(event) {
+            var request = event.request;
+            var uri = request.uri;
+            
+            // If URI ends with /, append index.html
+            if (uri.endsWith('/')) {
+                request.uri += 'index.html';
+            }
+            // If URI has no extension, append /index.html
+            else if (!uri.includes('.')) {
+                request.uri += '/index.html';
+            }
+            
+            return request;
+        }
+      FunctionConfig:
+        Comment: Rewrite URLs to append index.html
+        Runtime: cloudfront-js-1.0
 
   MetricsRoute53Record:
     Type: AWS::Route53::RecordSet

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Metrics Dashboard - Bitburner</title>
     <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -21,25 +21,30 @@
             <div class="stats-grid">
                 <div class="stat-card">
                     <h3>Total Secrets</h3>
-                    <p class="stat-value" id="totalSecrets">-</p>
+                    <p class="stat-value loading" id="totalSecrets"></p>
                 </div>
                 <div class="stat-card">
                     <h3>Secrets Created Today</h3>
-                    <p class="stat-value" id="secretsToday">-</p>
+                    <p class="stat-value loading" id="secretsToday"></p>
                 </div>
                 <div class="stat-card">
                     <h3>Secrets Viewed</h3>
-                    <p class="stat-value" id="secretsViewed">-</p>
+                    <p class="stat-value loading" id="secretsViewed"></p>
                 </div>
                 <div class="stat-card">
                     <h3>Active Secrets</h3>
-                    <p class="stat-value" id="activeSecrets">-</p>
+                    <p class="stat-value loading" id="activeSecrets"></p>
                 </div>
             </div>
 
             <div class="chart-container">
                 <h2>Secrets Created Over Time</h2>
-                <canvas id="timeChart"></canvas>
+                <div class="chart-wrapper">
+                    <canvas id="timeChart"></canvas>
+                    <div class="chart-loading" id="chartLoading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="table-container">
@@ -53,7 +58,21 @@
                         </tr>
                     </thead>
                     <tbody id="activityBody">
-                        <tr><td colspan="3">Loading...</td></tr>
+                        <tr class="loading-row">
+                            <td><span class="loading-skeleton short"></span></td>
+                            <td><span class="loading-skeleton medium"></span></td>
+                            <td><span class="loading-skeleton long"></span></td>
+                        </tr>
+                        <tr class="loading-row">
+                            <td><span class="loading-skeleton short"></span></td>
+                            <td><span class="loading-skeleton medium"></span></td>
+                            <td><span class="loading-skeleton long"></span></td>
+                        </tr>
+                        <tr class="loading-row">
+                            <td><span class="loading-skeleton short"></span></td>
+                            <td><span class="loading-skeleton medium"></span></td>
+                            <td><span class="loading-skeleton long"></span></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
