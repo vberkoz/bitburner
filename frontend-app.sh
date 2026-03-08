@@ -45,7 +45,10 @@ aws s3 cp app/style.css s3://$BUCKET_NAME/ --content-type "text/css" --region $R
 aws s3 cp app/app.js s3://$BUCKET_NAME/ --content-type "application/javascript" --region $REGION --profile $PROFILE
 
 # Restore original
-git checkout app/app.js 2>/dev/null || sed "s|${API_ENDPOINT}|API_GATEWAY_URL|g" app/app.js > app/app.js.tmp && mv app/app.js.tmp app/app.js
+if ! git checkout app/app.js 2>/dev/null; then
+    sed "s|${API_ENDPOINT}|API_GATEWAY_URL|g" app/app.js > app/app.js.tmp
+    mv app/app.js.tmp app/app.js
+fi
 
 echo ""
 echo "✅ Frontend deployment complete!"
