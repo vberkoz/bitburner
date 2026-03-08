@@ -154,29 +154,40 @@ Resources:
                   
                   // Create secret
                   if (method === 'POST' && path === '/secrets') {
-                      const { encrypted, iv, expirationHours = 24 } = JSON.parse(event.body);
+                      const body = JSON.parse(event.body);
+                      const { encrypted, iv, passwordHash, ttl } = body;
                       const id = crypto.randomBytes(16).toString('hex');
                       const timestamp = Date.now();
                       const date = new Date(timestamp).toISOString().split('T')[0];
-                      const ttl = Math.floor(timestamp / 1000) + (expirationHours * 60 * 60);
+                      
+                      // Use provided TTL or default to 24 hours
+                      const expirationTTL = ttl || Math.floor(timestamp / 1000) + (24 * 60 * 60);
+                      const expirationHours = Math.round((expirationTTL - Math.floor(timestamp / 1000)) / 3600);
+                      
+                      const item = {
+                          PK: `SECRET#${id}`,
+                          SK: 'METADATA',
+                          id,
+                          encrypted,
+                          iv,
+                          createdAt: timestamp,
+                          expirationHours,
+                          ttl: expirationTTL
+                      };
+                      
+                      // Add password hash if provided
+                      if (passwordHash) {
+                          item.passwordHash = passwordHash;
+                      }
                       
                       await client.send(new PutItemCommand({
                           TableName: TABLE_NAME,
-                          Item: marshall({
-                              PK: `SECRET#${id}`,
-                              SK: 'METADATA',
-                              id,
-                              encrypted,
-                              iv,
-                              createdAt: timestamp,
-                              expirationHours,
-                              ttl
-                          })
+                          Item: marshall(item)
                       }));
                       
                       // Log metrics
                       await Promise.all([
-                          logMetric('CREATE', { secretId: id, expirationHours }),
+                          logMetric('CREATE', { secretId: id, expirationHours, passwordProtected: !!passwordHash }),
                           updateDailyStats(date, 'secretsCreated')
                       ]);
                       
@@ -223,14 +234,24 @@ Resources:
                       
                       // Log metrics
                       await Promise.all([
-                          logMetric('VIEW', { secretId: id, timeToView }),
+                          logMetric('VIEW', { secretId: id, timeToView, passwordProtected: !!item.passwordHash }),
                           updateDailyStats(date, 'secretsViewed')
                       ]);
+                      
+                      // Return encrypted data and password hash if present
+                      const response = { 
+                          encrypted: item.encrypted, 
+                          iv: item.iv 
+                      };
+                      
+                      if (item.passwordHash) {
+                          response.passwordHash = item.passwordHash;
+                      }
                       
                       return {
                           statusCode: 200,
                           headers,
-                          body: JSON.stringify({ encrypted: item.encrypted, iv: item.iv })
+                          body: JSON.stringify(response)
                       };
                   }
                   

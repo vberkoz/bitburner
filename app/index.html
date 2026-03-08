@@ -107,6 +107,17 @@
                 </div>
                 <input type="hidden" id="expirationTime" value="24">
             </div>
+            <div class="password-protection">
+                <label for="passwordInput">
+                    <i data-lucide="key" class="label-icon"></i> 
+                    Password Protection (optional)
+                </label>
+                <div class="password-input-wrapper">
+                    <input type="password" id="passwordInput" placeholder="Add password for extra security..." aria-label="Optional password protection">
+                    <i data-lucide="lock" class="input-icon"></i>
+                </div>
+                <p class="password-hint">Add an extra layer of security. Recipients will need this password to view the message.</p>
+            </div>
             <button id="createBtn">
                 <i data-lucide="link" class="btn-icon"></i>
                 Generate Secure One-Time URL
@@ -122,7 +133,23 @@
         </div>
 
         <div id="viewSection" class="hidden">
-            <div id="messageContent">
+            <div id="passwordPrompt" class="hidden">
+                <h2><i data-lucide="shield-alert" class="section-icon"></i> Password Required</h2>
+                <p class="password-prompt-text">This secret is password protected. Enter the password to view it.</p>
+                <div class="password-input-wrapper">
+                    <input type="password" id="viewPasswordInput" placeholder="Enter password..." aria-label="Password to view secret">
+                    <i data-lucide="lock" class="input-icon"></i>
+                </div>
+                <button id="unlockBtn">
+                    <i data-lucide="unlock" class="btn-icon"></i>
+                    Unlock Secret
+                </button>
+                <div id="passwordError" class="password-error hidden">
+                    <i data-lucide="alert-circle" class="error-icon"></i>
+                    <span>Incorrect password. Please try again.</span>
+                </div>
+            </div>
+            <div id="messageContent" class="hidden">
                 <h2><i data-lucide="eye" class="section-icon"></i> Secret Message</h2>
                 <div id="messageDisplay"></div>
             </div>
@@ -138,6 +165,7 @@
             <ul>
                 <li><i data-lucide="shield" class="feature-icon"></i><strong>End-to-End Encryption:</strong> Your encrypted messages never leave your browser unencrypted. We use AES-256-GCM encryption.</li>
                 <li><i data-lucide="link-2" class="feature-icon"></i><strong>One-Time Secret Links:</strong> Each secure message can only be viewed once, then it's permanently deleted.</li>
+                <li><i data-lucide="key" class="feature-icon"></i><strong>Optional Password Protection:</strong> Add an extra layer of security with password protection for sensitive secrets.</li>
                 <li><i data-lucide="user-x" class="feature-icon"></i><strong>No Registration:</strong> Share encrypted messages instantly without creating an account.</li>
                 <li><i data-lucide="timer" class="feature-icon"></i><strong>Auto-Expiration:</strong> Choose when unviewed secrets expire: 1 hour, 6 hours, or 24 hours.</li>
                 <li><i data-lucide="eye-off" class="feature-icon"></i><strong>Privacy First:</strong> We never see your messages. Client-side encryption means only you and your recipient can read them.</li>
