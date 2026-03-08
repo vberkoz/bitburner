@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metrics Dashboard - Bitburner</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-brand">Bitburner Metrics</h1>
+            <div class="nav-menu">
+                <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Secrets</h3>
+                    <p class="stat-value" id="totalSecrets">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Secrets Created Today</h3>
+                    <p class="stat-value" id="secretsToday">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Secrets Viewed</h3>
+                    <p class="stat-value" id="secretsViewed">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Secrets</h3>
+                    <p class="stat-value" id="activeSecrets">-</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h2>Secrets Created Over Time</h2>
+                <canvas id="timeChart"></canvas>
+            </div>
+
+            <div class="table-container">
+                <h2>Metrics Summary</h2>
+                <table id="activityTable">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activityBody">
+                        <tr><td colspan="3">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

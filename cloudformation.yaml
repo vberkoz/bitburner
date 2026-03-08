@@ -1,0 +1,666 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: One-Time Secret Message Application
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: bitburner.vberkoz.com
+    Description: Custom domain name for the application
+  
+  MetricsDomainName:
+    Type: String
+    Default: metrics.bitburner.vberkoz.com
+    Description: Custom domain name for metrics dashboard
+  
+  HostedZoneName:
+    Type: String
+    Default: vberkoz.com
+    Description: Route53 hosted zone name
+  
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN for the domain (must be in us-east-1)
+
+Resources:
+  SecretsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: bitburner
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt SecretsTable.Arn
+                  - !Sub '${SecretsTable.Arn}/index/*'
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: bitburner-api
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SecretsTable
+      Code:
+        ZipFile: |
+          const { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand, QueryCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
+          const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
+          const crypto = require('crypto');
+          
+          const client = new DynamoDBClient({});
+          const TABLE_NAME = process.env.TABLE_NAME;
+          
+          // Helper to log metrics
+          async function logMetric(type, data) {
+              const timestamp = Date.now();
+              const date = new Date(timestamp).toISOString().split('T')[0];
+              
+              await client.send(new PutItemCommand({
+                  TableName: TABLE_NAME,
+                  Item: marshall({
+                      PK: `METRIC#${type}#${date}`,
+                      SK: `${timestamp}#${crypto.randomBytes(4).toString('hex')}`,
+                      GSI1PK: `METRIC#${type}`,
+                      GSI1SK: date,
+                      type,
+                      timestamp,
+                      date,
+                      ...data
+                  })
+              }));
+          }
+          
+          // Update daily stats
+          async function updateDailyStats(date, field) {
+              await client.send(new UpdateItemCommand({
+                  TableName: TABLE_NAME,
+                  Key: marshall({
+                      PK: `STATS#${date}`,
+                      SK: 'DAILY'
+                  }),
+                  UpdateExpression: `ADD ${field} :inc`,
+                  ExpressionAttributeValues: marshall({
+                      ':inc': 1
+                  })
+              }));
+          }
+          
+          exports.handler = async (event) => {
+              const headers = {
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'GET,POST,DELETE,OPTIONS',
+                  'Content-Type': 'application/json'
+              };
+              
+              if (event.requestContext.http.method === 'OPTIONS') {
+                  return { statusCode: 200, headers, body: '' };
+              }
+              
+              try {
+                  const method = event.requestContext.http.method;
+                  const path = event.requestContext.http.path;
+                  
+                  // Create secret
+                  if (method === 'POST' && path === '/secrets') {
+                      const { encrypted, iv } = JSON.parse(event.body);
+                      const id = crypto.randomBytes(16).toString('hex');
+                      const timestamp = Date.now();
+                      const date = new Date(timestamp).toISOString().split('T')[0];
+                      const ttl = Math.floor(timestamp / 1000) + (24 * 60 * 60);
+                      
+                      await client.send(new PutItemCommand({
+                          TableName: TABLE_NAME,
+                          Item: marshall({
+                              PK: `SECRET#${id}`,
+                              SK: 'METADATA',
+                              id,
+                              encrypted,
+                              iv,
+                              createdAt: timestamp,
+                              ttl
+                          })
+                      }));
+                      
+                      // Log metrics
+                      await Promise.all([
+                          logMetric('CREATE', { secretId: id }),
+                          updateDailyStats(date, 'secretsCreated')
+                      ]);
+                      
+                      return {
+                          statusCode: 200,
+                          headers,
+                          body: JSON.stringify({ id })
+                      };
+                  }
+                  
+                  // Retrieve and delete secret
+                  if (method === 'DELETE' && path.startsWith('/secrets/')) {
+                      const id = path.split('/')[2];
+                      const timestamp = Date.now();
+                      const date = new Date(timestamp).toISOString().split('T')[0];
+                      
+                      const getResult = await client.send(new GetItemCommand({
+                          TableName: TABLE_NAME,
+                          Key: marshall({
+                              PK: `SECRET#${id}`,
+                              SK: 'METADATA'
+                          })
+                      }));
+                      
+                      if (!getResult.Item) {
+                          await logMetric('ERROR', { type: 'NOT_FOUND', secretId: id });
+                          return {
+                              statusCode: 404,
+                              headers,
+                              body: JSON.stringify({ error: 'Secret not found' })
+                          };
+                      }
+                      
+                      const item = unmarshall(getResult.Item);
+                      const timeToView = timestamp - item.createdAt;
+                      
+                      await client.send(new DeleteItemCommand({
+                          TableName: TABLE_NAME,
+                          Key: marshall({
+                              PK: `SECRET#${id}`,
+                              SK: 'METADATA'
+                          })
+                      }));
+                      
+                      // Log metrics
+                      await Promise.all([
+                          logMetric('VIEW', { secretId: id, timeToView }),
+                          updateDailyStats(date, 'secretsViewed')
+                      ]);
+                      
+                      return {
+                          statusCode: 200,
+                          headers,
+                          body: JSON.stringify({ encrypted: item.encrypted, iv: item.iv })
+                      };
+                  }
+                  
+                  return {
+                      statusCode: 404,
+                      headers,
+                      body: JSON.stringify({ error: 'Not found' })
+                  };
+              } catch (error) {
+                  console.error(error);
+                  
+                  // Log error metric
+                  try {
+                      await logMetric('ERROR', { 
+                          type: 'INTERNAL_ERROR',
+                          message: error.message 
+                      });
+                  } catch (e) {
+                      console.error('Failed to log error metric:', e);
+                  }
+                  
+                  return {
+                      statusCode: 500,
+                      headers,
+                      body: JSON.stringify({ error: 'Internal server error' })
+                  };
+              }
+          };
+
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: bitburner-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowMethods:
+          - GET
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - '*'
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  ApiRoute1:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /secrets'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  ApiRoute2:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'DELETE /secrets/{id}'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: '$default'
+      AutoDeploy: true
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*'
+
+  MetricsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: bitburner-metrics
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref SecretsTable
+      Code:
+        ZipFile: |
+          const { DynamoDBClient, QueryCommand } = require('@aws-sdk/client-dynamodb');
+          const { unmarshall } = require('@aws-sdk/util-dynamodb');
+          
+          const client = new DynamoDBClient({});
+          const TABLE_NAME = process.env.TABLE_NAME;
+          
+          exports.handler = async (event) => {
+              const headers = {
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Allow-Headers': 'Content-Type',
+                  'Access-Control-Allow-Methods': 'GET,OPTIONS',
+                  'Content-Type': 'application/json'
+              };
+              
+              if (event.requestContext.http.method === 'OPTIONS') {
+                  return { statusCode: 200, headers, body: '' };
+              }
+              
+              try {
+                  const path = event.requestContext.http.path;
+                  
+                  // Get dashboard metrics
+                  if (path === '/metrics/dashboard') {
+                      const today = new Date().toISOString().split('T')[0];
+                      const last7Days = [];
+                      
+                      for (let i = 6; i >= 0; i--) {
+                          const date = new Date();
+                          date.setDate(date.getDate() - i);
+                          last7Days.push(date.toISOString().split('T')[0]);
+                      }
+                      
+                      // Query daily stats for last 7 days
+                      const statsPromises = last7Days.map(date =>
+                          client.send(new QueryCommand({
+                              TableName: TABLE_NAME,
+                              KeyConditionExpression: 'PK = :pk',
+                              ExpressionAttributeValues: {
+                                  ':pk': { S: `STATS#${date}` }
+                              }
+                          }))
+                      );
+                      
+                      const statsResults = await Promise.all(statsPromises);
+                      const dailyStats = statsResults.map((result, i) => {
+                          const item = result.Items?.[0] ? unmarshall(result.Items[0]) : {};
+                          return {
+                              date: last7Days[i],
+                              created: item.secretsCreated || 0,
+                              viewed: item.secretsViewed || 0
+                          };
+                      });
+                      
+                      // Query all CREATE metrics for total count
+                      const createMetrics = await client.send(new QueryCommand({
+                          TableName: TABLE_NAME,
+                          IndexName: 'GSI1',
+                          KeyConditionExpression: 'GSI1PK = :pk',
+                          ExpressionAttributeValues: {
+                              ':pk': { S: 'METRIC#CREATE' }
+                          },
+                          Select: 'COUNT'
+                      }));
+                      
+                      // Query VIEW metrics for time-to-view calculation
+                      const viewMetrics = await client.send(new QueryCommand({
+                          TableName: TABLE_NAME,
+                          IndexName: 'GSI1',
+                          KeyConditionExpression: 'GSI1PK = :pk',
+                          ExpressionAttributeValues: {
+                              ':pk': { S: 'METRIC#VIEW' }
+                          },
+                          Limit: 100
+                      }));
+                      
+                      const viewItems = viewMetrics.Items?.map(item => unmarshall(item)) || [];
+                      const avgTimeToView = viewItems.length > 0
+                          ? viewItems.reduce((sum, item) => sum + (item.timeToView || 0), 0) / viewItems.length
+                          : 0;
+                      
+                      // Query ERROR metrics
+                      const errorMetrics = await client.send(new QueryCommand({
+                          TableName: TABLE_NAME,
+                          IndexName: 'GSI1',
+                          KeyConditionExpression: 'GSI1PK = :pk',
+                          ExpressionAttributeValues: {
+                              ':pk': { S: 'METRIC#ERROR' }
+                          },
+                          Select: 'COUNT'
+                      }));
+                      
+                      const totalSecrets = createMetrics.Count || 0;
+                      const totalViewed = viewItems.length;
+                      const viewRate = totalSecrets > 0 ? (totalViewed / totalSecrets * 100).toFixed(1) : 0;
+                      
+                      const todayStats = dailyStats.find(s => s.date === today) || { created: 0, viewed: 0 };
+                      
+                      return {
+                          statusCode: 200,
+                          headers,
+                          body: JSON.stringify({
+                              totalSecrets,
+                              secretsToday: todayStats.created,
+                              secretsViewed: totalViewed,
+                              viewRate: parseFloat(viewRate),
+                              avgTimeToView: Math.round(avgTimeToView / 1000 / 60), // minutes
+                              errorCount: errorMetrics.Count || 0,
+                              dailyStats
+                          })
+                      };
+                  }
+                  
+                  return {
+                      statusCode: 404,
+                      headers,
+                      body: JSON.stringify({ error: 'Not found' })
+                  };
+              } catch (error) {
+                  console.error(error);
+                  return {
+                      statusCode: 500,
+                      headers,
+                      body: JSON.stringify({ error: 'Internal server error' })
+                  };
+              }
+          };
+
+  MetricsIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt MetricsFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  MetricsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'GET /metrics/dashboard'
+      Target: !Sub 'integrations/${MetricsIntegration}'
+
+  MetricsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MetricsFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*'
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'bitburner-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: bitburner-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${S3Bucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt S3Bucket.RegionalDomainName
+            OriginAccessControlId: !Ref CloudFrontOriginAccessControl
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          ForwardedValues:
+            QueryString: true
+            Cookies:
+              Forward: none
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        HttpVersion: http2and3
+
+  Route53Record:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub '${HostedZoneName}.'
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+
+  # Metrics Dashboard Resources
+  MetricsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'bitburner-metrics-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  MetricsCloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: bitburner-metrics-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  MetricsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MetricsS3Bucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${MetricsS3Bucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${MetricsCloudFrontDistribution}'
+
+  MetricsCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Aliases:
+          - !Ref MetricsDomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        DefaultRootObject: login.html
+        Origins:
+          - Id: MetricsS3Origin
+            DomainName: !GetAtt MetricsS3Bucket.RegionalDomainName
+            OriginAccessControlId: !Ref MetricsCloudFrontOriginAccessControl
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: MetricsS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /login.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /login.html
+        HttpVersion: http2and3
+
+  MetricsRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub '${HostedZoneName}.'
+      Name: !Ref MetricsDomainName
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+        DNSName: !GetAtt MetricsCloudFrontDistribution.DomainName
+
+Outputs:
+  ApiEndpoint:
+    Value: !GetAtt ApiGateway.ApiEndpoint
+    Description: API Gateway endpoint
+  
+  WebsiteURL:
+    Value: !Sub 'https://${DomainName}'
+    Description: Website URL
+  
+  MetricsURL:
+    Value: !Sub 'https://${MetricsDomainName}'
+    Description: Metrics dashboard URL
+  
+  CloudFrontURL:
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Description: CloudFront distribution domain
+  
+  BucketName:
+    Value: !Ref S3Bucket
+    Description: S3 bucket name
+  
+  MetricsBucketName:
+    Value: !Ref MetricsS3Bucket
+    Description: Metrics S3 bucket name
+  
+  MetricsCloudFrontURL:
+    Value: !GetAtt MetricsCloudFrontDistribution.DomainName
+    Description: Metrics CloudFront distribution domain
+

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One-Time Secret Message</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script data-project="bitburner" data-source="webapp" src="https://analytics.vberkoz.com/track.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>One-Time Secret Message</h1>
+        
+        <div id="createSection">
+            <h2>Create Secret</h2>
+            <textarea id="messageInput" placeholder="Enter your secret message..."></textarea>
+            <button id="createBtn">Generate One-Time URL</button>
+            <div id="result" class="hidden">
+                <p>Share this URL (it works only once):</p>
+                <input type="text" id="secretUrl" readonly>
+                <button id="copyBtn">Copy</button>
+            </div>
+        </div>
+
+        <div id="viewSection" class="hidden">
+            <h2>Secret Message</h2>
+            <div id="messageDisplay"></div>
+        </div>
+
+        <div id="error" class="hidden"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
