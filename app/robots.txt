@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /secrets/
+
+Sitemap: https://bitburner.vberkoz.com/sitemap.xml
