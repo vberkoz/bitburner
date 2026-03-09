@@ -384,6 +384,75 @@ button.loading {
     background: #38a169;
 }
 
+.social-share {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.share-label {
+    font-size: 14px;
+    color: #555;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.social-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.social-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.3s;
+}
+
+.social-btn.twitter {
+    background: #1DA1F2;
+}
+
+.social-btn.twitter:hover {
+    background: #1a8cd8;
+}
+
+.social-btn.facebook {
+    background: #1877F2;
+}
+
+.social-btn.facebook:hover {
+    background: #166fe5;
+}
+
+.social-btn.linkedin {
+    background: #0A66C2;
+}
+
+.social-btn.linkedin:hover {
+    background: #095196;
+}
+
+.social-btn.email {
+    background: #EA4335;
+}
+
+.social-btn.email:hover {
+    background: #d33426;
+}
+
+@media (max-width: 480px) {
+    .social-buttons {
+        grid-template-columns: 1fr;
+    }
+}
+
 #messageDisplay {
     padding: 20px;
     background: #f7fafc;
