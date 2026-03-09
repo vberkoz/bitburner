@@ -6,58 +6,68 @@ A secure application to share encrypted messages via one-time URLs. Messages are
 
 - Client-side AES-256-GCM encryption
 - One-time URL access (message deleted after viewing)
-- 24-hour TTL for unviewed messages
+- Configurable expiration (1h, 6h, 24h)
+- Optional password protection
 - Serverless architecture (Lambda + API Gateway + DynamoDB + S3)
+
+## Architecture
+
+- Frontend: Plain HTML/CSS/JS hosted on S3 + CloudFront
+- Backend: Lambda function with API Gateway at https://api.bitburner.vberkoz.com
+- Storage: DynamoDB with TTL enabled
+- Encryption: Web Crypto API (AES-256-GCM)
 
 ## Prerequisites
 
 - AWS CLI configured with credentials
 - AWS account with appropriate permissions
-- ACM certificate for *.vberkoz.com in us-east-1 region
+- ACM certificate for *.bitburner.vberkoz.com in us-east-1 region
 - Route53 hosted zone for vberkoz.com
-
-## Setup Certificate (First Time Only)
-
-If you don't have a certificate yet:
-
-```bash
-# Request certificate in us-east-1 (required for CloudFront)
-aws acm request-certificate \
-    --domain-name '*.vberkoz.com' \
-    --validation-method DNS \
-    --region us-east-1
-
-# Follow the DNS validation instructions in the AWS Console
-```
+- Node.js (for Lambda dependencies)
 
 ## Deployment
 
 ### First-Time Setup
 
-Run this once to set up everything:
+1. Run the initialization script:
 ```bash
-chmod +x first-time.sh
-./first-time.sh dev
+chmod +x init.sh
+./init.sh
 ```
 
-This will:
-- Create and validate SSL certificate
-- Deploy all AWS infrastructure
-- Upload frontend files
-- Configure DNS
+2. Deploy the backend:
+```bash
+chmod +x backend-app.sh
+./backend-app.sh
+```
+
+3. Deploy the frontend:
+```bash
+chmod +x frontend-app.sh
+./frontend-app.sh
+```
+
+4. Deploy the metrics dashboard:
+```bash
+chmod +x frontend-metrics.sh
+./frontend-metrics.sh
+```
 
 ### Subsequent Deployments
 
 For backend changes (Lambda, DynamoDB, API Gateway):
 ```bash
-chmod +x deploy-backend.sh
-./deploy-backend.sh dev
+./backend-app.sh
 ```
 
-For frontend changes only (HTML, CSS, JS):
+For frontend changes (HTML, CSS, JS):
 ```bash
-chmod +x deploy-frontend.sh
-./deploy-frontend.sh
+./frontend-app.sh
+```
+
+For metrics dashboard changes:
+```bash
+./frontend-metrics.sh
 ```
 
 The application will be deployed to: https://bitburner.vberkoz.com/

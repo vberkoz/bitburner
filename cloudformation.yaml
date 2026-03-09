@@ -198,6 +198,44 @@ Resources:
                       };
                   }
                   
+                  // Get secret metadata (check if password required)
+                  if (method === 'GET' && path.startsWith('/secrets/')) {
+                      const id = path.split('/')[2];
+                      
+                      const getResult = await client.send(new GetItemCommand({
+                          TableName: TABLE_NAME,
+                          Key: marshall({
+                              PK: `SECRET#${id}`,
+                              SK: 'METADATA'
+                          })
+                      }));
+                      
+                      if (!getResult.Item) {
+                          return {
+                              statusCode: 404,
+                              headers,
+                              body: JSON.stringify({ error: 'Secret not found' })
+                          };
+                      }
+                      
+                      const item = unmarshall(getResult.Item);
+                      
+                      // Return only metadata (whether password is required)
+                      const response = { 
+                          passwordRequired: !!item.passwordHash
+                      };
+                      
+                      if (item.passwordHash) {
+                          response.passwordHash = item.passwordHash;
+                      }
+                      
+                      return {
+                          statusCode: 200,
+                          headers,
+                          body: JSON.stringify(response)
+                      };
+                  }
+                  
                   // Retrieve and delete secret
                   if (method === 'DELETE' && path.startsWith('/secrets/')) {
                       const id = path.split('/')[2];
@@ -281,6 +319,7 @@ Resources:
               }
           };
 
+
   ApiGateway:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -305,14 +344,21 @@ Resources:
       IntegrationUri: !GetAtt ApiFunction.Arn
       PayloadFormatVersion: '2.0'
 
-  ApiRoute1:
+  ApiRoutePost:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiGateway
       RouteKey: 'POST /secrets'
       Target: !Sub 'integrations/${ApiIntegration}'
 
-  ApiRoute2:
+  ApiRouteGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'GET /secrets/{id}'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  ApiRouteDelete:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref ApiGateway
@@ -325,6 +371,33 @@ Resources:
       ApiId: !Ref ApiGateway
       StageName: '$default'
       AutoDeploy: true
+
+  ApiDomainName:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Sub 'api.${DomainName}'
+      DomainNameConfigurations:
+        - CertificateArn: !Ref CertificateArn
+          EndpointType: REGIONAL
+
+  ApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: ApiStage
+    Properties:
+      ApiId: !Ref ApiGateway
+      DomainName: !Ref ApiDomainName
+      Stage: '$default'
+
+  ApiDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Sub '${HostedZoneName}.'
+      Name: !Sub 'api.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt ApiDomainName.RegionalHostedZoneId
+        EvaluateTargetHealth: false
 
   LambdaPermission:
     Type: AWS::Lambda::Permission

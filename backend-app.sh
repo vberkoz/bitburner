@@ -58,6 +58,6 @@ WEBSITE_URL=$(aws cloudformation describe-stacks \
 
 echo ""
 echo "✅ Backend deployment complete!"
-echo "🔗 API Endpoint: $API_ENDPOINT"
+echo "🔗 API Endpoint: https://api.bitburner.vberkoz.com"
 echo "🌐 Website URL: $WEBSITE_URL"
 echo ""
